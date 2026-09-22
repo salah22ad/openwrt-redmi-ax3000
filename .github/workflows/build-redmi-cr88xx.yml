@@ -229,18 +229,18 @@ jobs:
           echo "✅ .config imported from cfw-leds repo." | tee -a build.log
         else
           echo "⚠️ .config not found in cfw-leds repo — applying fallback config." | tee -a build.log
-          cat > openwrt/.config <<'EOF'
-CONFIG_TARGET_ipq50xx=y
-CONFIG_TARGET_ipq50xx_arm=y
-CONFIG_TARGET_BOARD="ipq50xx"
-CONFIG_TARGET_SUBTARGET="arm"
-CONFIG_TARGET_PROFILE="DEVICE_redmi_ax3000"
-CONFIG_TARGET_ARCH_PACKAGES="arm_cortex-a7_neon-vfpv4"
-CONFIG_PACKAGE_luci=y
-CONFIG_PACKAGE_luci-light=y
-CONFIG_PACKAGE_uhttpd=y
-CONFIG_PACKAGE_uhttpd-mod-ubus=y
-EOF
+          sed 's/^ *//' > openwrt/.config <<'EOF'
+          CONFIG_TARGET_ipq50xx=y
+          CONFIG_TARGET_ipq50xx_arm=y
+          CONFIG_TARGET_BOARD="ipq50xx"
+          CONFIG_TARGET_SUBTARGET="arm"
+          CONFIG_TARGET_PROFILE="DEVICE_redmi_ax3000"
+          CONFIG_TARGET_ARCH_PACKAGES="arm_cortex-a7_neon-vfpv4"
+          CONFIG_PACKAGE_luci=y
+          CONFIG_PACKAGE_luci-light=y
+          CONFIG_PACKAGE_uhttpd=y
+          CONFIG_PACKAGE_uhttpd-mod-ubus=y
+          EOF
           echo "✅ Fallback .config written." | tee -a build.log
         fi
 
@@ -440,18 +440,13 @@ EOF
     # -----------------------------------------------------------------------
     # 13. Upload logs
     # -----------------------------------------------------------------------
-    - name: Upload log to repository (always)
+    - name: Finalize build log (no push to repo)
       if: always()
       run: |
-        echo "=== Uploading log to repository ===" >> build.log
         echo "=== BUILD LOG END - $(date) ===" >> build.log
         echo "Build completed with status: ${{ job.status }}" >> build.log
         echo "Git branch: $OPENWRT_REF" >> build.log
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add build.log
-        git commit -m "Update build log for run ${{ github.run_id }}" || true
-        git push origin HEAD:${{ github.ref_name }} || true
+        echo "✅ Log finalized (not pushed to repository)."
 
     - name: Upload full log as artifact (always)
       if: always()
