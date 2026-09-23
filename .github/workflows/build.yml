@@ -126,9 +126,9 @@ jobs:
         ./scripts/feeds install -a 2>&1 | tee -a ../build.log
 
     # -----------------------------------------------------------------------
-    # 5. Clone cfw-leds repo once (source for .config, files/ and theme)
+    # 5. Clone cfw-leds repo (only for files/ and theme/)
     # -----------------------------------------------------------------------
-    - name: Clone cfw-leds repo (for .config, files and theme)
+    - name: Clone cfw-leds repo (for files and theme)
       run: |
         echo "=== Cloning cfw-leds repo ===" | tee -a build.log
         echo "Repo: $CFW_REPO" | tee -a build.log
@@ -197,7 +197,6 @@ jobs:
         echo "=== Verifying Makefile presence ===" | tee -a build.log
         if [ -f "$TARGET_DIR/Makefile" ]; then
           echo "Makefile found at $TARGET_DIR/Makefile" | tee -a build.log
-          echo "--- Makefile header (first 20 lines) ---" | tee -a build.log
           head -n 20 "$TARGET_DIR/Makefile" | tee -a build.log
         else
           echo "ERROR: Makefile NOT found in $TARGET_DIR" | tee -a build.log
@@ -206,16 +205,25 @@ jobs:
         echo "luci-theme-enan-dashboard package import completed." | tee -a build.log
 
     # -----------------------------------------------------------------------
-    # 8. Import .config from cfw-leds repo (with fallback)
+    # 8. Import .config (priority: workspace -> cfw-leds -> fallback)
     # -----------------------------------------------------------------------
-    - name: Copy .config from cfw-leds repo (with fallback)
+    - name: Copy .config (priority: workspace -> cfw-leds -> fallback)
       run: |
-        echo "=== Copying .config from cfw-leds repo ===" | tee -a build.log
-        if [ -f "$CFW_DIR/.config" ]; then
+        echo "=== Searching for .config ===" | tee -a build.log
+        echo "Priority: 1) workspace ./.config (your repo)" | tee -a build.log
+        echo "          2) cfw-leds \$CFW_DIR/.config" | tee -a build.log
+        echo "          3) hardcoded fallback" | tee -a build.log
+
+        if [ -f "./.config" ]; then
+          echo "✅ Found .config in workspace (salah22ad/openwrt-redmi-ax3000): ./.config" | tee -a build.log
+          cp -v "./.config" openwrt/.config 2>&1 | tee -a build.log
+          echo ".config imported from workspace." | tee -a build.log
+        elif [ -f "$CFW_DIR/.config" ]; then
+          echo "✅ Found .config in cfw-leds: $CFW_DIR/.config" | tee -a build.log
           cp -v "$CFW_DIR/.config" openwrt/.config 2>&1 | tee -a build.log
           echo ".config imported from cfw-leds repo." | tee -a build.log
         else
-          echo ".config not found in cfw-leds repo - applying fallback config." | tee -a build.log
+          echo "⚠️ .config not found in workspace or cfw-leds - applying hardcoded fallback." | tee -a build.log
           printf '%s\n' \
             'CONFIG_TARGET_ipq50xx=y' \
             'CONFIG_TARGET_ipq50xx_arm=y' \
@@ -260,7 +268,6 @@ jobs:
         ensure_opt 'CONFIG_PACKAGE_uhttpd=y'
         ensure_opt 'CONFIG_PACKAGE_uhttpd-mod-ubus=y'
 
-        # --- Inject theme option if requested ---
         if [ "${{ github.event.inputs.attach_theme }}" = "true" ]; then
           echo "=== Injecting CONFIG_PACKAGE_luci-theme-enan-dashboard=y ===" | tee -a ../build.log
           if ! grep -q "^CONFIG_PACKAGE_luci-theme-enan-dashboard=y" .config; then
